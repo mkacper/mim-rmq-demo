@@ -1,0 +1,41 @@
+version: '3.5'
+
+services:
+
+  mongoose:
+    container_name: mim-rmq-mongoose
+    image: mongooseim/mongooseim
+    hostname: mongooseim-1
+    networks:
+      - mim-rmq-net
+    ports:
+      - 55222:5222
+    volumes:
+      - './mongoose_conf:/member'
+    depends_on:
+      - rabbit
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+          curl https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -o wait-for-it.sh -s
+          chmod +x wait-for-it.sh
+          ./wait-for-it.sh rabbit:5672
+          ./start.sh
+
+  rabbit:
+    container_name: mim-rmq-rabbit
+    image: rabbitmq:3.7-management
+    hostname: rabbitmq-1
+    networks:
+      - mim-rmq-net
+    ports:
+      - 55672:5672
+      - 55673:15672
+    environment:
+      - 'RABBITMQ_ERLANG_COOKIE=rabbit'
+
+networks:
+  mim-rmq-net:
+    driver: bridge
+    name: mim-rmq-net
