@@ -48,3 +48,7 @@ then consumed (by [`consumer.exs`](endpoints/lib/consumer.exs) script).
   > PROTIP: Choose different roles for the users. You'll be asked by the script if
   > you play as `Alice` or `Bob`.
 
+### Tips&Tricks
+
+* Go to http://localhost:55673 (credentials `guest`/`guest`) and see
+RMQ Management UI
