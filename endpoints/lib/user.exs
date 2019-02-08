@@ -34,31 +34,49 @@ opts = [jid: sender[:jid], password: sender[:pass], port: 55222]
 
 # Helpers
 
-recv_stanzas = fn(recv_fun) ->
-  receive do
-    {:stanza, stanza} ->
-      Logger.info "[x] Received stanza=`#{inspect(stanza)}`"
-      recv_fun.(recv_fun)
-  after
-    0 -> :no_more_stanzas
+get_user_command = fn(parent, fun) ->
+  command = IO.gets("Type a message to #{receiver[:jid]} (or `exit`): ")
+  cond do
+    String.starts_with?(String.downcase(command), "exit") ->
+      send(parent, {:user_cmd, self(), :exit})
+    is_binary(command) ->
+      send(parent, {:user_cmd, self(), {:message, command}})
   end
+  fun.(parent, fun)
 end
 
-send_msgs_and_recv_stanzas = fn(pid, fun) ->
-  message = IO.gets("Type a message to #{receiver[:jid]} (or `exit` or `skip`): ")
-  cond do
-    String.starts_with?(String.downcase(message), "exit") ->
-      Conn.close(pid)
-      Logger.info("Received `exit` request")
-      exit(:normal)
-    String.starts_with?(String.downcase(message), "skip") ->
-      :skip
-    true ->
-      Conn.send(pid, Stanza.chat(receiver[:jid], message))
+handle_stanza =
+  fn(_conn, %Romeo.Stanza.Presence{} = stanza) ->
+    Logger.debug("[x] Received presence stanza=#{inspect stanza}")
+  (_conn, %Romeo.Stanza.Message{} = stanza) ->
+    Logger.info("[x] Received message=#{inspect stanza.body}" <>
+      " from=#{inspect stanza.from.user}")
+  (_conn, stanza) ->
+      Logger.info("[x] Received stanza=#{inspect stanza}")
   end
-  recv_stanzas.(recv_stanzas)
-  fun.(pid, fun)
+
+handle_cmd =
+  fn(conn, :exit) ->
+    Conn.close(conn)
+    Logger.info("Received `exit` request")
+    exit(:normal)
+  (conn, {:message, message}) ->
+    Conn.send(conn, Stanza.chat(receiver[:jid], message))
+  end
+
+user_loop = fn(conn, cmd_handler, fun) ->
+  receive do
+    {:user_cmd, ^cmd_handler, cmd} ->
+      handle_cmd.(conn, cmd)
+    {:stanza, stanza} ->
+      handle_stanza.(conn, stanza)
+    other ->
+      Logger.debug("Received other=#{inspect other}")
+  end
+  fun.(conn, cmd_handler, fun)
 end
 
 # Start the script
-send_msgs_and_recv_stanzas.(pid, send_msgs_and_recv_stanzas)
+me = self()
+cmd_handler_pid = spawn_link(fn -> get_user_command.(me, get_user_command) end)
+user_loop.(pid, cmd_handler_pid, user_loop)
