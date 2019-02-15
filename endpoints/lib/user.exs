@@ -16,13 +16,11 @@ receiver = %{}
 
 # Decide if we play as Bob or Alice
 role = IO.gets("Are you Bob or Alice? (type `b` or `a`): ")
-cond do
+{sender, receiver} = cond do
   String.starts_with?(String.downcase(role), "b") ->
-    sender = %{jid: bob_jid, pass: bob_pass}
-    receiver = %{jid: alice_jid, pass: alice_pass}
+    {%{jid: bob_jid, pass: bob_pass}, %{jid: alice_jid, pass: alice_pass}}
   true ->
-    sender = %{jid: alice_jid, pass: alice_pass}
-    receiver = %{jid: bob_jid, pass: bob_pass}
+    {%{jid: alice_jid, pass: alice_pass}, %{jid: bob_jid, pass: bob_pass}}
 end
 
 # Start the client
